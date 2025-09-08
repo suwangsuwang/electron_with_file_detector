@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>透明覆盖层</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: rgba(255, 0, 0, 0.5); /* 更明显的红色半透明背景 */
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-app-region: no-drag;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 255, 0, 0.5); /* 更明显的绿色半透明背景 */
+            z-index: 9999;
+            pointer-events: auto;
+        }
+
+        .drag-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .drag-indicator.show {
+            display: block;
+        }
+
+        .overlay-status {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 0, 0.9);
+            color: black;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            display: none;
+            z-index: 10001;
+            pointer-events: none;
+            border: 2px solid #ff6600;
+        }
+
+        .overlay-status.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay"></div>
+    <div id="dragIndicator" class="drag-indicator">
+        🖱️ 正在拖拽文件...
+    </div>
+    <div id="overlayStatus" class="overlay-status">
+        🟢 覆盖窗口已展开 - 可以拖拽文件
+    </div>
+
+    <!-- 全局鼠标监听状态指示器 -->
+    <div id="globalStatus" style="
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 255, 0, 0.8);
+        color: black;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        z-index: 10002;
+        pointer-events: none;
+    ">🌐 全局监听已启动</div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const overlay = document.getElementById('overlay');
+        const dragIndicator = document.getElementById('dragIndicator');
+        const overlayStatus = document.getElementById('overlayStatus');
+        const globalStatus = document.getElementById('globalStatus');
+
+        let isDragging = false;
+        let dragStartTime = 0;
+        let mouseDownTime = 0;
+        let mouseDownPosition = { x: 0, y: 0 };
+        let isWindowExpanded = false;
+
+        // 监听拖拽开始
+        document.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            showDebugInfo('拖拽进入覆盖层');
+
+            if (!isDragging) {
+                isDragging = true;
+                dragStartTime = Date.now();
+                dragIndicator.classList.add('show');
+                showDebugInfo('开始拖拽文件');
+                console.log('开始拖拽文件');
+            }
+        });
+
+        // 监听拖拽结束（不再在前端做类型识别，改由 Swift 侧完成）
+        document.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            showDebugInfo('文件拖拽释放（类型识别由 Swift 侧完成）');
+
+            if (isDragging) {
+                isDragging = false;
+                dragIndicator.classList.remove('show');
+            }
+
+            // 拖拽结束后缩小窗口
+            if (isWindowExpanded) {
+                try {
+                    await ipcRenderer.invoke('minimize-overlay');
+                    isWindowExpanded = false;
+                    showDebugInfo('拖拽结束，覆盖窗口已缩小');
+                    console.log('拖拽结束，缩小覆盖窗口');
+                } catch (error) {
+                    showDebugInfo('缩小覆盖窗口失败: ' + error.message);
+                    console.error('缩小覆盖窗口失败:', error);
+                }
+            }
+        });
+
+        // 监听拖拽离开
+        document.addEventListener('dragleave', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // 检查是否真的离开了窗口
+            if (e.relatedTarget === null) {
+                isDragging = false;
+                dragIndicator.classList.remove('show');
+
+                // 拖拽离开时缩小窗口
+                if (isWindowExpanded) {
+                    try {
+                        await ipcRenderer.invoke('minimize-overlay');
+                        isWindowExpanded = false;
+                        console.log('拖拽离开，缩小覆盖窗口');
+                    } catch (error) {
+                        console.error('缩小覆盖窗口失败:', error);
+                    }
+                }
+            }
+        });
+
+        // 监听拖拽移动
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        // 添加简单的点击测试
+        document.addEventListener('click', (e) => {
+            console.log('🎯 点击事件触发:', e.clientX, e.clientY);
+            showDebugInfo(`🎯 点击事件: (${e.clientX}, ${e.clientY})`);
+        });
+
+        // 全局鼠标事件监听（界面反馈）
+        document.addEventListener('mousedown', async (e) => {
+            console.log('🌐 全局鼠标按下事件:', e.clientX, e.clientY);
+            showDebugInfo(`🌐 全局鼠标按下: (${e.clientX}, ${e.clientY})`);
+
+            if (!isOverlayExpanded) {
+                try {
+                    const result = await ipcRenderer.invoke('expand-overlay');
+                    if (result.success) {
+                        isOverlayExpanded = true;
+                        overlayStatus.classList.add('show');
+                        showDebugInfo('✅ 全局鼠标按下，覆盖窗口已展开');
+                    }
+                } catch (error) {
+                    showDebugInfo('❌ 展开覆盖窗口失败: ' + error.message);
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', async (e) => {
+            console.log('🌐 全局鼠标抬起事件:', e.clientX, e.clientY);
+            showDebugInfo(`🌐 全局鼠标抬起: (${e.clientX}, ${e.clientY})`);
+
+            if (isOverlayExpanded) {
+                try {
+                    const result = await ipcRenderer.invoke('minimize-overlay');
+                    if (result.success) {
+                        isOverlayExpanded = false;
+                        overlayStatus.classList.remove('show');
+                        showDebugInfo('✅ 全局鼠标抬起，覆盖窗口已缩小');
+                    }
+                } catch (error) {
+                    showDebugInfo('❌ 缩小覆盖窗口失败: ' + error.message);
+                }
+            }
+        });
+
+        // 监听键盘事件（ESC键关闭覆盖层）
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                ipcRenderer.invoke('close-overlay');
+            }
+        });
+
+        console.log('透明覆盖层已加载，等待拖拽事件...');
+        console.log('🖱️ 鼠标事件监听器已设置');
+        console.log('📋 覆盖窗口状态指示器已准备就绪');
+
+        // 通知主进程覆盖层已加载
+        ipcRenderer.invoke('overlay-loaded').then(() => {
+            console.log('已通知主进程覆盖层加载完成');
+        }).catch(error => {
+            console.error('通知主进程失败:', error);
+        });
+
+        // 添加页面加载完成的调试信息
+        showDebugInfo('🎯 覆盖层已加载，等待鼠标事件...');
+
+        function showDebugInfo(message) {
+            console.log('[DEBUG]', message);
+            const debugDiv = document.createElement('div');
+            debugDiv.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: rgba(0,0,0,0.8);
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                font-size: 12px;
+                z-index: 10001;
+                max-width: 300px;
+                word-wrap: break-word;
+            `;
+            debugDiv.textContent = message;
+            document.body.appendChild(debugDiv);
+            setTimeout(() => {
+                if (debugDiv.parentNode) {
+                    debugDiv.parentNode.removeChild(debugDiv);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

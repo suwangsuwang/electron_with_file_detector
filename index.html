@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>文件拖拽检测器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button.primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button.primary:hover {
+            background-color: #0056b3;
+        }
+
+        button.secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        button.secondary:hover {
+            background-color: #545b62;
+        }
+
+        button.danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        button.danger:hover {
+            background-color: #c82333;
+        }
+
+        .file-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-info h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+
+        .file-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .file-detail:last-child {
+            border-bottom: none;
+        }
+
+        .file-detail .label {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .file-detail .value {
+            color: #6c757d;
+        }
+
+        .file-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .file-type.file {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .file-type.folder {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        .file-type.app {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .instructions {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .instructions h4 {
+            margin-top: 0;
+            color: #004085;
+        }
+
+        .instructions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 文件拖拽检测器</h1>
+
+        <div class="instructions">
+            <h4>使用说明：</h4>
+            <ul>
+                <li>确保已授予辅助功能权限</li>
+                <li>点击"启动检测"开始监听文件拖拽</li>
+                <li>在系统中拖拽任何文件，检测结果将显示在下方</li>
+                <li>支持检测文件类型、文件夹、应用程序等</li>
+            </ul>
+        </div>
+
+        <div id="status" class="status warning">
+            正在检查权限...
+        </div>
+
+        <div class="controls">
+            <button id="checkPermission" class="primary">检查权限</button>
+            <button id="startDetection" class="primary">启动检测</button>
+            <button id="stopDetection" class="secondary">停止检测</button>
+            <button id="getLastFile" class="secondary">获取最后文件</button>
+        </div>
+
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <h3>📄 检测到的文件信息</h3>
+            <div id="fileDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        // DOM 元素
+        const statusEl = document.getElementById('status');
+        const fileInfoEl = document.getElementById('fileInfo');
+        const fileDetailsEl = document.getElementById('fileDetails');
+
+        // 按钮事件
+        document.getElementById('checkPermission').addEventListener('click', checkPermission);
+        document.getElementById('startDetection').addEventListener('click', startDetection);
+        document.getElementById('stopDetection').addEventListener('click', stopDetection);
+        document.getElementById('getLastFile').addEventListener('click', getLastFile);
+
+        // 初始化
+        checkPermission();
+
+        // 监听文件检测事件
+        ipcRenderer.on('file-detected', (event, fileInfo) => {
+            displayFileInfo(fileInfo);
+        });
+
+        async function checkPermission() {
+            try {
+                updateStatus('正在检查权限...', 'warning');
+                const hasPermission = await ipcRenderer.invoke('check-permissions');
+
+                if (hasPermission) {
+                    updateStatus('✅ 权限已获取，可以开始检测', 'success');
+                } else {
+                    updateStatus('❌ 需要辅助功能权限，请在系统偏好设置中授权', 'error');
+                }
+            } catch (error) {
+                updateStatus(`❌ 检查权限失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function startDetection() {
+            try {
+                updateStatus('正在启动文件拖拽检测...', 'warning');
+                const result = await ipcRenderer.invoke('start-file-drag-detection');
+
+                if (result.success) {
+                    updateStatus('✅ 文件拖拽检测已启动，请开始拖拽文件', 'success');
+                } else {
+                    updateStatus(`❌ 启动失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateStatus(`❌ 启动检测失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopDetection() {
+            try {
+                updateStatus('正在停止文件拖拽检测...', 'warning');
+                const result = await ipcRenderer.invoke('stop-file-drag-detection');
+
+                if (result.success) {
+                    updateStatus('✅ 文件拖拽检测已停止', 'success');
+                } else {
+                    updateStatus(`❌ 停止失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateStatus(`❌ 停止检测失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function getLastFile() {
+            try {
+                updateStatus('正在获取最后检测到的文件...', 'warning');
+                const fileInfo = await ipcRenderer.invoke('get-last-detected-file');
+
+                if (fileInfo) {
+                    displayFileInfo(fileInfo);
+                    updateStatus('✅ 已获取文件信息', 'success');
+                } else {
+                    updateStatus('ℹ️ 暂无检测到的文件', 'warning');
+                    fileInfoEl.style.display = 'none';
+                }
+            } catch (error) {
+                updateStatus(`❌ 获取文件信息失败: ${error.message}`, 'error');
+            }
+        }
+
+        function displayFileInfo(fileInfo) {
+            const typeClass = fileInfo.isFileType ? 'file' :
+                             fileInfo.description.includes('文件夹') ? 'folder' : 'app';
+
+            fileDetailsEl.innerHTML = `
+                <div class="file-detail">
+                    <span class="label">文件名:</span>
+                    <span class="value">${fileInfo.fileName}</span>
+                </div>
+                <div class="file-detail">
+                    <span class="label">类型:</span>
+                    <span class="value">
+                        <span class="file-type ${typeClass}">${fileInfo.description}</span>
+                    </span>
+                </div>
+                <div class="file-detail">
+                    <span class="label">路径:</span>
+                    <span class="value">${fileInfo.filePath}</span>
+                </div>
+                ${fileInfo.fileExtension ? `
+                <div class="file-detail">
+                    <span class="label">扩展名:</span>
+                    <span class="value">${fileInfo.fileExtension}</span>
+                </div>
+                ` : ''}
+            `;
+
+            fileInfoEl.style.display = 'block';
+        }
+
+        function updateStatus(message, type) {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+    </script>
+</body>
+</html>

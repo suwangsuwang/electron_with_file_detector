@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>文件类型检测（Swift）</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+    .row { margin-bottom: 12px; }
+    .btn { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; }
+    .log { background: #111; color: #0f0; padding: 12px; height: 180px; overflow: auto; border-radius: 6px; }
+    .result { padding: 12px; border: 1px solid #eee; border-radius: 6px; }
+
+    /* 拖拽排序列表样式 */
+    .drag-list-container {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 2px solid #e9ecef;
+    }
+
+    .drag-list-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #495057;
+    }
+
+    .drag-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .drag-item {
+      padding: 12px 16px;
+      margin: 8px 0;
+      background: white;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      cursor: grab;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .drag-item:hover {
+      border-color: #007bff;
+      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+    }
+
+    .drag-item.dragging {
+      opacity: 0.5;
+      transform: rotate(5deg);
+      cursor: grabbing;
+      border-color: #007bff;
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .drag-item.drag-over {
+      border-color: #28a745;
+      background: #f8fff9;
+    }
+
+    .drag-handle {
+      width: 20px;
+      height: 20px;
+      background: #6c757d;
+      border-radius: 50%;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .drag-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .drag-icon {
+      font-size: 20px;
+      margin-right: 12px;
+    }
+
+    .drag-text {
+      font-size: 14px;
+      color: #495057;
+    }
+
+    .drag-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 4px 8px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background: #f8f9fa;
+      border-color: #adb5bd;
+    }
+
+    .add-item-form {
+      margin-top: 15px;
+      padding: 15px;
+      background: white;
+      border-radius: 6px;
+      border: 1px solid #dee2e6;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .form-input {
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      flex: 1;
+    }
+
+    .form-btn {
+      padding: 8px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .form-btn:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h2>文件类型检测（Swift 全局监听）</h2>
+  <div class="row">
+    <button id="start" class="btn">启动检测</button>
+    <button id="stop" class="btn">停止检测</button>
+    <button id="openTestPage" class="btn" style="background: #28a745; color: white;">🧪 打开拖拽测试页面</button>
+  </div>
+  <div class="row result" id="result">等待文件拖拽并释放…</div>
+
+  <!-- 拖拽排序列表视图 -->
+  <div class="drag-list-container">
+    <div class="drag-list-title">🧩 拖拽排序测试列表</div>
+    <p style="margin-bottom: 15px; color: #6c757d; font-size: 14px;">
+      这是一个拖拽排序列表，用于测试透明视图展开逻辑是否会影响其他应用的拖拽功能。
+      你可以拖拽列表项来重新排序，或者添加新的项目。
+    </p>
+
+    <ul class="drag-list" id="dragList">
+      <li class="drag-item" draggable="true" data-id="1">
+        <div class="drag-content">
+          <div class="drag-handle"></div>
+          <div class="drag-icon">📁</div>
+          <div class="drag-text">项目 1 - 拖拽测试</div>
+        </div>
+        <div class="drag-actions">
+          <button class="action-btn" onclick="editItem(this)">编辑</button>
+          <button class="action-btn" onclick="deleteItem(this)">删除</button>
+        </div>
+      </li>
+      <li class="drag-item" draggable="true" data-id="2">
+        <div class="drag-content">
+          <div class="drag-handle"></div>
+          <div class="drag-icon">📄</div>
+          <div class="drag-text">项目 2 - 文件检测</div>
+        </div>
+        <div class="drag-actions">
+          <button class="action-btn" onclick="editItem(this)">编辑</button>
+          <button class="action-btn" onclick="deleteItem(this)">删除</button>
+        </div>
+      </li>
+      <li class="drag-item" draggable="true" data-id="3">
+        <div class="drag-content">
+          <div class="drag-handle"></div>
+          <div class="drag-icon">⚙️</div>
+          <div class="drag-text">项目 3 - 系统设置</div>
+        </div>
+        <div class="drag-actions">
+          <button class="action-btn" onclick="editItem(this)">编辑</button>
+          <button class="action-btn" onclick="deleteItem(this)">删除</button>
+        </div>
+      </li>
+      <li class="drag-item" draggable="true" data-id="4">
+        <div class="drag-content">
+          <div class="drag-handle"></div>
+          <div class="drag-icon">🎨</div>
+          <div class="drag-text">项目 4 - 界面设计</div>
+        </div>
+        <div class="drag-actions">
+          <button class="action-btn" onclick="editItem(this)">编辑</button>
+          <button class="action-btn" onclick="deleteItem(this)">删除</button>
+        </div>
+      </li>
+    </ul>
+
+    <div class="add-item-form">
+      <div class="form-row">
+        <input type="text" class="form-input" id="newItemText" placeholder="输入新项目名称...">
+        <select class="form-input" id="newItemIcon" style="flex: 0 0 80px;">
+          <option value="📁">📁</option>
+          <option value="📄">📄</option>
+          <option value="⚙️">⚙️</option>
+          <option value="🎨">🎨</option>
+          <option value="🚀">🚀</option>
+          <option value="💡">💡</option>
+        </select>
+        <button class="form-btn" onclick="addNewItem()">添加项目</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row log" id="log"></div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    const openTestPageBtn = document.getElementById('openTestPage');
+    const resultDiv = document.getElementById('result');
+    const logDiv = document.getElementById('log');
+
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      logDiv.textContent += `[${ts}] ${msg}\n`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    startBtn.onclick = async () => {
+      const r = await ipcRenderer.invoke('start-file-drag-detection');
+      log(`启动检测: ${JSON.stringify(r)}`);
+    };
+    stopBtn.onclick = async () => {
+      const r = await ipcRenderer.invoke('stop-file-drag-detection');
+      log(`停止检测: ${JSON.stringify(r)}`);
+    };
+
+    openTestPageBtn.onclick = async () => {
+      try {
+        const result = await ipcRenderer.invoke('open-test-page');
+        if (result.success) {
+          log('✅ 拖拽测试页面已打开');
+        } else {
+          log('❌ 打开测试页面失败: ' + result.error);
+        }
+      } catch (error) {
+        log('❌ 打开测试页面失败: ' + error.message);
+      }
+    };
+
+    ipcRenderer.on('file-detected', (_e, fileInfo) => {
+      log(`Swift 文件: ${JSON.stringify(fileInfo)}`);
+      resultDiv.textContent = `${fileInfo.fileName} — ${fileInfo.description} (${fileInfo.fileExtension || '无扩展名'})`;
+    });
+
+    // 拖拽排序功能
+    let draggedItem = null;
+    let nextId = 5;
+
+    // 初始化拖拽事件
+    function initDragAndDrop() {
+      const dragList = document.getElementById('dragList');
+
+      dragList.addEventListener('dragstart', handleDragStart);
+      dragList.addEventListener('dragover', handleDragOver);
+      dragList.addEventListener('drop', handleDrop);
+      dragList.addEventListener('dragend', handleDragEnd);
+    }
+
+    function handleDragStart(e) {
+      if (e.target.classList.contains('drag-item')) {
+        draggedItem = e.target;
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.outerHTML);
+        log(`开始拖拽项目: ${e.target.querySelector('.drag-text').textContent}`);
+      }
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const targetItem = e.target.closest('.drag-item');
+      if (targetItem && targetItem !== draggedItem) {
+        // 移除其他项目的 drag-over 样式
+        document.querySelectorAll('.drag-item').forEach(item => {
+          if (item !== targetItem) item.classList.remove('drag-over');
+        });
+        targetItem.classList.add('drag-over');
+      }
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+
+      const targetItem = e.target.closest('.drag-item');
+      if (targetItem && draggedItem && targetItem !== draggedItem) {
+        const allItems = [...document.querySelectorAll('.drag-item')];
+        const draggedIndex = allItems.indexOf(draggedItem);
+        const targetIndex = allItems.indexOf(targetItem);
+
+        if (draggedIndex < targetIndex) {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+        } else {
+          targetItem.parentNode.insertBefore(draggedItem, targetItem);
+        }
+
+        log(`项目已重新排序: ${draggedItem.querySelector('.drag-text').textContent} -> 位置 ${targetIndex + 1}`);
+      }
+
+      // 清理样式
+      document.querySelectorAll('.drag-item').forEach(item => {
+        item.classList.remove('drag-over');
+      });
+    }
+
+    function handleDragEnd(e) {
+      if (e.target.classList.contains('drag-item')) {
+        e.target.classList.remove('dragging');
+        draggedItem = null;
+      }
+    }
+
+    // 添加新项目
+    function addNewItem() {
+      const textInput = document.getElementById('newItemText');
+      const iconSelect = document.getElementById('newItemIcon');
+
+      if (!textInput.value.trim()) {
+        alert('请输入项目名称');
+        return;
+      }
+
+      const newItem = document.createElement('li');
+      newItem.className = 'drag-item';
+      newItem.draggable = true;
+      newItem.setAttribute('data-id', nextId++);
+
+      newItem.innerHTML = `
+        <div class="drag-content">
+          <div class="drag-handle"></div>
+          <div class="drag-icon">${iconSelect.value}</div>
+          <div class="drag-text">${textInput.value}</div>
+        </div>
+        <div class="drag-actions">
+          <button class="action-btn" onclick="editItem(this)">编辑</button>
+          <button class="action-btn" onclick="deleteItem(this)">删除</button>
+        </div>
+      `;
+
+      document.getElementById('dragList').appendChild(newItem);
+      textInput.value = '';
+      log(`添加新项目: ${textInput.value}`);
+    }
+
+    // 编辑项目
+    function editItem(btn) {
+      const item = btn.closest('.drag-item');
+      const textElement = item.querySelector('.drag-text');
+      const currentText = textElement.textContent;
+
+      const newText = prompt('编辑项目名称:', currentText);
+      if (newText && newText.trim() && newText !== currentText) {
+        textElement.textContent = newText;
+        log(`编辑项目: ${currentText} -> ${newText}`);
+      }
+    }
+
+    // 删除项目
+    function deleteItem(btn) {
+      const item = btn.closest('.drag-item');
+      const text = item.querySelector('.drag-text').textContent;
+
+      if (confirm(`确定要删除项目 "${text}" 吗？`)) {
+        item.remove();
+        log(`删除项目: ${text}`);
+      }
+    }
+
+    // 页面加载完成后初始化拖拽功能
+    document.addEventListener('DOMContentLoaded', function() {
+      initDragAndDrop();
+      log('拖拽排序列表已初始化，可以开始测试拖拽功能');
+    });
+  </script>
+</body>
+</html>

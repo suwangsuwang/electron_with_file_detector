@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>拖拽功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+        }
+        
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #495057;
+        }
+        
+        .drag-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .drag-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: grab;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .drag-item:hover {
+            border-color: #007bff;
+            background: #e7f3ff;
+        }
+        
+        .drag-item.dragging {
+            opacity: 0.6;
+            transform: rotate(3deg);
+            cursor: grabbing;
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+        
+        .drag-handle {
+            width: 24px;
+            height: 24px;
+            background: #6c757d;
+            border-radius: 50%;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .drag-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        
+        .drag-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        
+        .drag-text {
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .status-indicator {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .test-instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+            margin-bottom: 20px;
+        }
+        
+        .test-instructions h4 {
+            margin: 0 0 10px 0;
+            color: #0056b3;
+        }
+        
+        .test-instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .test-instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 拖拽功能测试页面</h1>
+        
+        <div class="test-instructions">
+            <h4>测试说明：</h4>
+            <ul>
+                <li>这个页面用于测试拖拽排序功能是否正常工作</li>
+                <li>拖拽列表项来重新排序，验证拖拽事件是否被正确捕获</li>
+                <li>观察透明视图是否会在拖拽过程中展开（预期：不应该展开）</li>
+                <li>检查拖拽功能是否受到透明视图逻辑的影响</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">📋 拖拽排序测试列表</div>
+            <div id="status" class="status-indicator status-info">
+                准备开始拖拽测试...
+            </div>
+            
+            <ul class="drag-list" id="dragList">
+                <li class="drag-item" draggable="true" data-id="1">
+                    <div class="drag-handle"></div>
+                    <div class="drag-content">
+                        <div class="drag-icon">📁</div>
+                        <div class="drag-text">测试项目 1 - 文件管理</div>
+                    </div>
+                </li>
+                <li class="drag-item" draggable="true" data-id="2">
+                    <div class="drag-handle"></div>
+                    <div class="drag-content">
+                        <div class="drag-icon">📄</div>
+                        <div class="drag-text">测试项目 2 - 文档编辑</div>
+                    </div>
+                </li>
+                <li class="drag-item" draggable="true" data-id="3">
+                    <div class="drag-handle"></div>
+                    <div class="drag-content">
+                        <div class="drag-icon">⚙️</div>
+                        <div class="drag-text">测试项目 3 - 系统设置</div>
+                    </div>
+                </li>
+                <li class="drag-item" draggable="true" data-id="4">
+                    <div class="drag-handle"></div>
+                    <div class="drag-content">
+                        <div class="drag-icon">🎨</div>
+                        <div class="drag-text">测试项目 4 - 界面设计</div>
+                    </div>
+                </li>
+                <li class="drag-item" draggable="true" data-id="5">
+                    <div class="drag-handle"></div>
+                    <div class="drag-content">
+                        <div class="drag-icon">🚀</div>
+                        <div class="drag-text">测试项目 5 - 性能优化</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">📊 测试结果</div>
+            <div id="testResults">
+                <p><strong>拖拽事件统计：</strong></p>
+                <ul>
+                    <li>拖拽开始次数: <span id="dragStartCount">0</span></li>
+                    <li>拖拽结束次数: <span id="dragEndCount">0</span></li>
+                    <li>拖拽完成次数: <span id="dragCompleteCount">0</span></li>
+                </ul>
+                <p><strong>最后操作：</strong> <span id="lastAction">无</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let draggedItem = null;
+        let dragStartCount = 0;
+        let dragEndCount = 0;
+        let dragCompleteCount = 0;
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status-indicator status-${type}`;
+        }
+        
+        function updateCounters() {
+            document.getElementById('dragStartCount').textContent = dragStartCount;
+            document.getElementById('dragEndCount').textContent = dragEndCount;
+            document.getElementById('dragCompleteCount').textContent = dragCompleteCount;
+        }
+        
+        function updateLastAction(action) {
+            document.getElementById('lastAction').textContent = action;
+        }
+        
+        // 初始化拖拽事件
+        function initDragAndDrop() {
+            const dragList = document.getElementById('dragList');
+            
+            dragList.addEventListener('dragstart', handleDragStart);
+            dragList.addEventListener('dragover', handleDragOver);
+            dragList.addEventListener('drop', handleDrop);
+            dragList.addEventListener('dragend', handleDragEnd);
+            
+            updateStatus('拖拽功能已初始化，可以开始测试', 'success');
+        }
+        
+        function handleDragStart(e) {
+            if (e.target.classList.contains('drag-item')) {
+                draggedItem = e.target;
+                e.target.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', e.target.outerHTML);
+                
+                dragStartCount++;
+                updateCounters();
+                updateLastAction(`开始拖拽: ${e.target.querySelector('.drag-text').textContent}`);
+                updateStatus(`正在拖拽: ${e.target.querySelector('.drag-text').textContent}`, 'warning');
+                
+                console.log('拖拽开始:', e.target.querySelector('.drag-text').textContent);
+            }
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            
+            const targetItem = e.target.closest('.drag-item');
+            if (targetItem && draggedItem && targetItem !== draggedItem) {
+                const allItems = [...document.querySelectorAll('.drag-item')];
+                const draggedIndex = allItems.indexOf(draggedItem);
+                const targetIndex = allItems.indexOf(targetItem);
+                
+                if (draggedIndex < targetIndex) {
+                    targetItem.parentNode.insertBefore(draggedItem, targetItem.nextSibling);
+                } else {
+                    targetItem.parentNode.insertBefore(draggedItem, targetItem);
+                }
+                
+                dragCompleteCount++;
+                updateCounters();
+                updateLastAction(`完成拖拽: ${draggedItem.querySelector('.drag-text').textContent} -> 位置 ${targetIndex + 1}`);
+                updateStatus(`拖拽完成: ${draggedItem.querySelector('.drag-text').textContent} 已重新排序`, 'success');
+                
+                console.log('拖拽完成:', draggedItem.querySelector('.drag-text').textContent);
+            }
+        }
+        
+        function handleDragEnd(e) {
+            if (e.target.classList.contains('drag-item')) {
+                e.target.classList.remove('dragging');
+                draggedItem = null;
+                
+                dragEndCount++;
+                updateCounters();
+                updateLastAction(`拖拽结束: ${e.target.querySelector('.drag-text').textContent}`);
+                
+                console.log('拖拽结束:', e.target.querySelector('.drag-text').textContent);
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initDragAndDrop();
+            updateCounters();
+            
+            console.log('拖拽测试页面已加载，开始测试...');
+        });
+        
+        // 添加一些测试用的全局函数
+        window.testDragAndDrop = {
+            resetCounters: function() {
+                dragStartCount = 0;
+                dragEndCount = 0;
+                dragCompleteCount = 0;
+                updateCounters();
+                updateLastAction('计数器已重置');
+                updateStatus('测试计数器已重置', 'info');
+            },
+            
+            getStats: function() {
+                return {
+                    dragStart: dragStartCount,
+                    dragEnd: dragEndCount,
+                    dragComplete: dragCompleteCount
+                };
+            }
+        };
+    </script>
+</body>
+</html>
